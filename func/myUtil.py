@@ -1,10 +1,22 @@
 import json
-import os
+import random
 import sys
 import time
+from datetime import datetime
+from enum import Enum, unique
+from typing import Any
+
+import jsonpath as jsonpath
 
 
-def std_input():
+@unique
+class TimeClass(Enum):
+    SECOND = 1.0
+    MILLI_SECOND = 1000.0
+    MICRO_SECOND = 1000000.0
+
+
+def std_input() -> list:
     """
     从控制台获取多行输入
     :return: list<line>
@@ -18,7 +30,7 @@ def std_input():
     return line
 
 
-def header_str_to_dict(lines: list):
+def header_str_to_dict(lines: list) -> dict:
     """
     把str转成header
     :param lines: list
@@ -32,7 +44,7 @@ def header_str_to_dict(lines: list):
     return headers
 
 
-def print_json(js, indent=4, ensure_ascii=False, sort_keys=False):
+def print_json(js, indent=4, ensure_ascii=False, sort_keys=False) -> None:
     """
     美化输出json
     :param js:
@@ -50,12 +62,12 @@ def print_json(js, indent=4, ensure_ascii=False, sort_keys=False):
             print(json.dumps(list(js), indent=indent, ensure_ascii=ensure_ascii, sort_keys=sort_keys))
         else:
             print(js)
-    except:
+    except Exception as e:
         print(js)
 
 
 def to_json(s, _type="string", cls=None, object_hook=None, parse_float=None, parse_int=None, parse_constant=None,
-            object_pairs_hook=None, **kw):
+            object_pairs_hook=None, **kw) -> Any:
     """
     字符串或者文件转python数据类型
     :param s:
@@ -80,7 +92,7 @@ def to_json(s, _type="string", cls=None, object_hook=None, parse_float=None, par
 
 
 def to_string(obj, fp=None, skipkeys=False, ensure_ascii=True, check_circular=True, allow_nan=True, cls=None, indent=None,
-              separators=None, default=None, sort_keys=False, **kw):
+              separators=None, default=None, sort_keys=False, **kw) -> str | None:
     """
     把python类型转字符串，或者转换后并写入文件
     :param obj:
@@ -107,14 +119,14 @@ def to_string(obj, fp=None, skipkeys=False, ensure_ascii=True, check_circular=Tr
                          sort_keys=sort_keys, **kw)
 
 
-def special_str_to_json(sp: str):
+def special_str_to_json(sp: str) -> dict:
     di = {}
     for i in sp.split(":"):
         di[i.split("=")[0]] = i.split("=")[1]
     return di
 
 
-def json_to_special_str(js: dict):
+def json_to_special_str(js: dict) -> str:
     sp = ""
     for k, v in js.items():
         sp = sp + k + "=" + v + ":"
@@ -122,5 +134,44 @@ def json_to_special_str(js: dict):
     return sp
 
 
-def timestamp(digit=10):
-    return str(int(round(time.time() * 1000)))[0:digit]
+def strptime(_date=None, _format="%Y-%m-%d %H:%M:%S", _class=TimeClass.SECOND.value) -> int:
+    """
+    日期转时间戳，默认返回当前时间戳
+    :param _date: 日期字符串
+    :param _format: 日期格式
+    :param _class: 时间戳精度等级，秒/毫秒/微妙，s/ms/μs
+    :return: 时间戳
+    """
+    if _date is None:
+        return int(time.time() * _class)
+    dt = datetime.strptime(_date, _format)
+    return int((time.mktime(dt.timetuple()) + (dt.microsecond / _class)) * _class)
+
+
+def strftime(timestamp=None, _format='%Y-%m-%d %H:%M:%S', _class=TimeClass.SECOND.value) -> str:
+    """
+    时间戳转日期，默认返回当前日期
+    :param timestamp: 时间戳
+    :param _format: 日期格式
+    :param _class: 时间戳精度等级，秒/毫秒/微妙，s/ms/μs
+    :return: 日期字符串
+    """
+    if timestamp is None:
+        timestamp = time.time()
+    return datetime.fromtimestamp(timestamp / _class).strftime(_format)
+
+
+def randint(a: int, b: int) -> int:
+    """
+    返回随机整数，范围：[a,b]
+    :param a: 最小值
+    :param b: 最大值
+    :return:
+    """
+    return random.randint(a, b)
+
+
+def jpath(a, path: str) -> list | bool:
+    return jsonpath.jsonpath(a, path)
+
+

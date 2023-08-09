@@ -1,14 +1,44 @@
+import inspect
 import logging
 import re
-import requests
+import textwrap
 
-from myUtil import to_json, special_str_to_json, timestamp, json_to_special_str
+import requests
 from lxml import etree
+from requests import Response
+
+from idiom.idiom import IdiomInterface
+from myUtil import *
 
 logging.basicConfig(level=logging.INFO)
 
 
-class KXue:
+def print_roundtrip(response, *args, **kwargs):
+    """
+    打印http报文
+    :param response:
+    :param args:
+    :param kwargs:
+    :return:
+    """
+    format_headers = lambda d: '\n'.join(f'{k}: {v}' for k, v in d.items())
+    logging.debug(textwrap.dedent('''
+        --------------------------------------------------- request ------------------------------------------------
+        {req.method} {req.url}
+        {request_headers}
+
+        --------------------------------------------------- response -----------------------------------------------
+        {res.status_code} {res.reason} {res.url}
+        {response_headers}
+    ''').format(
+        req=response.request,
+        res=response,
+        request_headers=format_headers(response.request.headers),
+        response_headers=format_headers(response.headers),
+    ))
+
+
+class KXue(IdiomInterface):
     _host = "http://chengyu.kxue.com"
 
     _pinyin = "/pinyin"
@@ -37,7 +67,7 @@ class KXue:
         self.login()
 
     def _update_cookies(self):
-        ts = timestamp()
+        ts = str(strptime(_class=TimeClass.SECOND.value))
         if self._cookies['__gads']:
             __gads = special_str_to_json(self._cookies['__gads'])
             __gads['RT'] = ts
@@ -49,30 +79,17 @@ class KXue:
         if self._cookies['Hm_lpvt_a852cf951acb5ab555bcf768173f1bfc']:
             self._cookies['Hm_lpvt_a852cf951acb5ab555bcf768173f1bfc'] = ts
 
-    def _get(self, url=None, params=None, data=None, headers=None, cookies=None):
+    def _get(self, url=None, params=None, data=None, headers=None, cookies=None) -> Response:
         self._update_cookies()
+        return requests.get(url=url, params=params, data=data, headers=headers, cookies=cookies,
+                            hooks={'response': print_roundtrip})
 
-        logging.info("url:<" + str(url) + ">")
-        # logging.info("params:<" + str(params) + ">")
-        # logging.info("data:<" + str(data) + ">")
-        # logging.info("headers:<" + str(headers) + ">")
-        logging.info("cookies:<" + str(cookies) + ">")
-
-        return requests.get(url=url, params=params, data=data, headers=headers, cookies=cookies)
-
-    def _post(self, url=None, data=None, json=None, params=None, headers=None, cookies=None):
+    def _post(self, url=None, data=None, json=None, params=None, headers=None, cookies=None) -> Response:
         self._update_cookies()
+        return requests.post(url=url, data=data, json=json, params=params, headers=headers, cookies=cookies,
+                             hooks={'response': print_roundtrip})
 
-        logging.info("url:<" + str(url) + ">")
-        # logging.info("params:<" + str(params) + ">")
-        # logging.info("json:<" + str(json) + ">")
-        # logging.info("data:<" + str(data) + ">")
-        # logging.info("headers:<" + str(headers) + ">")
-        logging.info("cookies:<" + str(cookies) + ">")
-
-        return requests.post(url=url, data=data, json=json, params=params, headers=headers, cookies=cookies)
-
-    def login(self, url=None, headers=None):
+    def login(self, url=None, headers=None) -> dict[str:str]:
         """
         获取cookies，并设置cookies
         :param url: 登录的url
@@ -127,13 +144,13 @@ class KXue:
 
         return self._cookies
 
-    def pinyin(self, py=None, headers=None, cookies=None):
+    def pinyin(self, py=None, headers=None, cookies=None) -> str:
         """
         根据拼音查询成语
         :param py: 拼音
         :param headers:
         :param cookies:
-        :return: html页面
+        :return: html
         """
         if py is None:
             py = ""
@@ -143,10 +160,84 @@ class KXue:
             headers = self._html_headers
         if cookies is None:
             cookies = self._cookies
-        return self._get(url=self._host + self._pinyin + py, headers=headers, cookies=cookies).text
+        r = self._get(url=self._host + self._pinyin + py, headers=headers, cookies=cookies)
+        r.encoding = etree.HTML(r.text).xpath("/html/head/meta[1]/@content")[0].split("=")[-1]
+        return r.text
+
+    def plus_search(self, title, path=None) -> str:
+        """
+        通过汉字搜索成语
+        :param title: 汉字
+        :param path:
+        :return: html
+        """
+        if path is None:
+            path = "/plus/search.php"
+        return self._get(self._host + path,
+                         params={'type': 'view', 'title': bytes(title, 'gbk'), 'x': randint(1, 100), 'y': randint(1, 100)}).text
+
+
+def get_all_idiom(obj: IdiomInterface, pying: str) -> list[dict[str:str]]:
+    """
+    根据首字的拼音，查找全部成语，和对应的成语解释
+    :param obj: IdiomInterface对象
+    :param pying: 汉语拼音
+    :return: [{idiom:value,paraphrase:value}]
+    """
+    logging.info("函数<%s>被调用，pying：%s" % (inspect.stack()[0][3], pying))
+    li = []
+    if isinstance(obj, KXue):  # 爬取快学网
+        ete = etree.HTML(obj.pinyin(pying))
+        # 页数，总条数
+        page, page_size = ete.xpath("/html/body/div[1]/div[4]/div[2]/div[5]/ul/li/span/strong/text()")
+        logging.info("总页数：%s，总条数：%s" % (page, page_size))
+        logging.info("当前是第1页")
+        # 第一页
+        idiom_list = ete.xpath("/html/body/div[1]/div[4]/div[2]/div[5]/div[2]/li[*]/span[1]/a/text()")
+        paraphrase_list = ete.xpath("/html/body/div[1]/div[4]/div[2]/div[5]/div[2]/li[*]/span[2]/text()")
+        if len(idiom_list) >= len(paraphrase_list):
+            # 有一些成语的释义是空的，需要特殊处理
+            for i in range(1, len(idiom_list) + 1):
+                idiom_list_tmp = ete.xpath("/html/body/div[1]/div[4]/div[2]/div[5]/div[2]/li[%s]/span[1]/a/text()" % i)
+                paraphrase_list_tmp = ete.xpath("/html/body/div[1]/div[4]/div[2]/div[5]/div[2]/li[%s]/span[2]/text()" % i)
+                if idiom_list_tmp:
+                    if paraphrase_list_tmp:
+                        li.append({"idiom": idiom_list_tmp[0], "paraphrase": paraphrase_list_tmp[0]})
+                    else:
+                        logging.warning("成语的释义为空，成语为<%s>" % idiom_list_tmp[0])
+                        li.append({"idiom": idiom_list_tmp[0], "paraphrase": ''})
+                else:
+                    raise Exception("意料之外的错误，没有从html中找到成语")
+        else:
+            raise Exception("意料之外的错误，释义的数量比成语多")
+
+        # 处理后续的页
+        for i in range(2, int(page) + 1):
+            logging.info("当前是第%s页" % i)
+            time.sleep(randint(100, 200) / 1000)  # 让访问间隔时间更加随机
+            ete = etree.HTML(obj.pinyin(pying + "_" + str(i)))
+            idiom_list = ete.xpath("/html/body/div[1]/div[4]/div[2]/div[5]/div[2]/li[*]/span[1]/a/text()")
+            paraphrase_list = ete.xpath("/html/body/div[1]/div[4]/div[2]/div[5]/div[2]/li[*]/span[2]/text()")
+            if len(idiom_list) >= len(paraphrase_list):
+                # 有一些成语的释义是空的，需要特殊处理
+                for j in range(1, len(idiom_list) + 1):
+                    idiom_list_tmp = ete.xpath("/html/body/div[1]/div[4]/div[2]/div[5]/div[2]/li[%s]/span[1]/a/text()" % j)
+                    paraphrase_list_tmp = ete.xpath("/html/body/div[1]/div[4]/div[2]/div[5]/div[2]/li[%s]/span[2]/text()" % j)
+                    if idiom_list_tmp:
+                        if paraphrase_list_tmp:
+                            li.append({"idiom": idiom_list_tmp[0], "paraphrase": paraphrase_list_tmp[0]})
+                        else:
+                            logging.warning("成语的释义为空，成语为<%s>" % idiom_list_tmp[0])
+                            li.append({"idiom": idiom_list_tmp[0], "paraphrase": ''})
+                    else:
+                        logging.warning("idiom_list_tmp:" + str(idiom_list_tmp))
+                        logging.warning("paraphrase_list_tmp:" + str(paraphrase_list_tmp))
+                        raise Exception("意料之外的错误，没有从html中找到成语")
+            else:
+                logging.warning("idiom_list长度:%s" % len(idiom_list))
+                logging.warning("paraphrase_list长度:%s" % len(paraphrase_list))
+                raise Exception("意料之外的错误，释义的数量比成语多")
+    return li
 
 
 kx = KXue()
-
-with open("../data/html/dddd.html", mode="w", encoding="utf-8") as f:
-    f.write(kx.pinyin("weng"))

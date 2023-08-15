@@ -5,9 +5,24 @@ import sys
 import time
 from datetime import datetime
 from enum import Enum, unique
+from functools import wraps
 from typing import Any
 
 import jsonpath as jsonpath
+
+
+def tips(_type: str):
+    """打印注释"""
+
+    def tip(func):
+        @wraps(func)
+        def ti(*args, **kwargs):
+            print("%s-->>%s" % (_type, func.__doc__))
+            return func(*args, **kwargs)
+
+        return ti
+
+    return tip
 
 
 @unique
@@ -26,7 +41,7 @@ def std_input() -> list:
     try:
         for i in sys.stdin:
             line.append(i.strip())
-    except KeyError:
+    except Exception:
         pass
     return line
 
@@ -40,8 +55,11 @@ def header_str_to_dict(lines: list) -> dict:
     if len(lines) % 2 != 0:
         raise Exception("Wrong number of list elements!")
     headers = {}
-    for i in range(0, int(len(lines) / 2)):
-        headers[lines[2 * i][0:-1]] = lines[2 * i + 1]
+    try:
+        for i in range(0, int(len(lines) / 2)):
+            headers[lines[2 * i][0:-1]] = lines[2 * i + 1]
+    except Exception as e:
+        raise Exception("Unknown error!")
     return headers
 
 
@@ -225,3 +243,5 @@ def count_cn_char(char) -> int:
         if 0x4E00 <= ord(item) <= 0x9FA5:
             count += 1
     return count
+
+

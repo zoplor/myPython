@@ -1,13 +1,16 @@
 import unittest
 from unittest import TestCase
 
-from myUtil import tips, header_str_to_dict
+from myUtil import tips, header_str_to_dict, special_str_to_json, print_blank_line
 
 
 class TestMyUtil(TestCase):
 
     @classmethod
+    @print_blank_line
+    @tips("测试场景", "测试结果")
     def setUpClass(cls) -> None:
+        """测试用例"""
         pass
 
     @classmethod
@@ -50,6 +53,20 @@ class TestMyUtil(TestCase):
         test_data = []
         result = header_str_to_dict(test_data)
         self.assertEqual({}, result)
+
+    @tips("正常场景")
+    def test_special_str_to_json_true(self):
+        """把kxue.com网的cookies转成dict"""
+        test_data = "Hm_lvt_a852cf951acb5ab555bcf768173f1bfc=1691221592; Hm_lpvt_a852cf951acb5ab555bcf768173f1bfc=1692110534; " \
+                    "__gads=ID=3861192f528ed0b4-229d4728bae7009e:T=1691221592:RT=1692110529:S=ALNI_MbrBRs2gEWMCgKEOI" \
+                    "-p6g9eYOXZ7w; __gpi=UID=00000c2740754a6e:T=1691221592:RT=1692110529:S=ALNI_MbRMoA5I9N1oTUbKkDZ-IDRFYsZdg; " \
+                    "FCNEC=%5B%5B%22AKsRol-WRjd4qU28L6z_M2mIhuoiKmpj2Br0C09ZxFeoITXRm8nfIo--UU2" \
+                    "-3E15JFXRBt6T1yPzvM6qqYeXkvtx1W_8l9-bclDb-qJt5al47TNKAqQxpJ_jCqFknNsMiBWSpZVm0420LQr3-WTtJH4EJ-kWTRrX3w%3D" \
+                    "%3D%22%5D%2Cnull%2C%5B%5D%5D"
+        expected = {'Hm_lvt_a852cf951acb5ab555bcf768173f1bfc': '1691221592; Hm_lpvt_a852cf951acb5ab555bcf768173f1bfc',
+                    'T': '1691221592', 'RT': '1692110529', 'S': 'ALNI_MbRMoA5I9N1oTUbKkDZ-IDRFYsZdg; FCNEC'}
+        result = special_str_to_json(test_data)
+        self.assertEqual(expected, result)
 
 
 if __name__ == "__main__":

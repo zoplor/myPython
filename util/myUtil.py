@@ -1,4 +1,7 @@
+# -*- coding:utf-8 -*-
+
 import json
+import logging
 import random
 import re
 import sys
@@ -7,18 +10,36 @@ from datetime import datetime
 from enum import Enum, unique
 from functools import wraps
 from typing import Any
-
+import wcwidth
 import jsonpath as jsonpath
 
+logging.basicConfig(level=logging.INFO)
 
-def tips(_type: str):
+
+def print_blank_line(func):
+    """输出一个空行"""
+
+    @wraps(func)
+    def ti(*args, **kwargs):
+        res = func(*args, **kwargs)
+        print()
+        return res
+
+    return ti
+
+
+def tips(_type: str, _pass="Pass √"):
     """打印注释"""
 
     def tip(func):
         @wraps(func)
         def ti(*args, **kwargs):
-            print("%s-->>%s" % (_type, func.__doc__))
-            return func(*args, **kwargs)
+            t, d = _type, func.__doc__
+            result = func(*args, **kwargs)
+            pretty_print(t, 10, '')
+            pretty_print(d, 90, '')
+            pretty_print(_pass, 6, '\n')
+            return result
 
         return ti
 
@@ -142,6 +163,11 @@ def json_to_str(obj, fp=None, skipkeys=False, ensure_ascii=False, check_circular
 
 
 def special_str_to_json(sp: str) -> dict:
+    """
+    把kxue.com网的cookies转成dict
+    :param sp:
+    :return:
+    """
     di = {}
     for i in sp.split(":"):
         di[i.split("=")[0]] = i.split("=")[1]
@@ -232,16 +258,47 @@ def sifer(li: list, mode="in", reverse=False, **kwargs):
     return list(filter(lambda x: _compare(x=x, mode=mode, reverse=reverse, **kwargs), li))
 
 
-def count_cn_char(char) -> int:
+def count_cn_char(string: str) -> int:
     """
     计算字符串中，中文的个数
-    :param char: 字符串
+    :param string: 字符串
     :return:
     """
     count = 0
-    for item in char:
-        if 0x4E00 <= ord(item) <= 0x9FA5:
+    for char in string:
+        if is_cn_char(char):
             count += 1
     return count
+
+
+def is_cn_char(char: str) -> bool:
+    """
+    判断字符是否为中文字符
+    :param char: 单个字符
+    :return:
+    """
+    return 0x4E00 <= ord(char) <= 0x9FA5
+
+
+def pretty_print(string, width, end='', way="<", fill=' ') -> None:
+    """
+    漂亮地打印字符串
+    :param string: 要打印的字符串
+    :param way: < 左对齐，> 右对齐，^ 中间对齐
+    :param width: 字符串宽度
+    :param end: 字符串的末尾
+    :param fill: 用来填充空白处的字符
+    :return:
+    """
+    try:
+        count = wcwidth.wcswidth(string) - len(string)
+        width = width - count if width >= count else 0
+        print('{0:{1}{2}{3}}'.format(string, fill, way, width), end=end, flush=True)
+    except:
+        print('print_format函数参数输入错误！')
+
+
+
+
 
 

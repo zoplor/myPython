@@ -233,3 +233,5 @@ class KXueImpl(IdiomInterface):
         else:
             path = "/list/%s.html" % path
         return self._get(url=self._host + path, headers=headers, cookies=self._cookies)
+
+

@@ -37,7 +37,7 @@ def tips(_type: str, _pass="Pass √"):
             t, d = _type, func.__doc__
             result = func(*args, **kwargs)
             pretty_print(t, 10, '')
-            pretty_print(d, 90, '')
+            pretty_print(d, 80, '')
             pretty_print(_pass, 6, '\n')
             return result
 
@@ -193,7 +193,7 @@ def strptime(_date=None, _format="%Y-%m-%d %H:%M:%S", _class=TimeClass.SECOND.va
     if _date is None:
         return int(time.time() * _class)
     dt = datetime.strptime(_date, _format)
-    return int((time.mktime(dt.timetuple()) + (dt.microsecond / _class)) * _class)
+    return int((time.mktime(dt.timetuple()) + (dt.microsecond / 1000000.0)) * _class)
 
 
 def strftime(timestamp=None, _format='%Y-%m-%d %H:%M:%S', _class=TimeClass.SECOND.value) -> str:
@@ -220,6 +220,12 @@ def randint(a: int, b: int) -> int:
 
 
 def jpath(a, path: str) -> list | bool:
+    """
+    通过jsonpath从json中取值
+    :param a: json
+    :param path: jsonpath
+    :return:
+    """
     return jsonpath.jsonpath(a, path)
 
 
@@ -277,7 +283,10 @@ def is_cn_char(char: str) -> bool:
     :param char: 单个字符
     :return:
     """
-    return 0x4E00 <= ord(char) <= 0x9FA5
+    try:
+        return 0x4E00 <= ord(char) <= 0x9FA5
+    except Exception as e:
+        raise e
 
 
 def pretty_print(string, width, end='', way="<", fill=' ') -> None:
@@ -298,7 +307,16 @@ def pretty_print(string, width, end='', way="<", fill=' ') -> None:
         print('print_format函数参数输入错误！')
 
 
-
-
+def range_list(a: int, b: int):
+    """
+    返回[a,..,b]，每一个元素都是整数
+    :param a: 最小值
+    :param b: 最大值
+    :return: [a,..,b]
+    """
+    try:
+        return list(range(a, b + 1))
+    except Exception as e:
+        raise e
 
 

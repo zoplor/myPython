@@ -1,7 +1,6 @@
 # -*- coding:utf-8 -*-
 
 import json
-import logging
 import random
 import re
 import sys
@@ -10,10 +9,9 @@ from datetime import datetime
 from enum import Enum, unique
 from functools import wraps
 from typing import Any
-import wcwidth
-import jsonpath as jsonpath
 
-logging.basicConfig(level=logging.INFO)
+import jsonpath as jsonpath
+import wcwidth
 
 
 def print_blank_line(func):
